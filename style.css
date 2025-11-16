@@ -1,0 +1,124 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #f7f7f7;
+  color: #222;
+  margin: 0;
+  padding: 1rem;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 0.2rem;
+  font-size: 1.8rem;
+  color: #111;
+}
+
+#subtitle {
+  text-align: center;
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.15rem;
+  background: white;
+}
+
+th {
+  background: #e0e0e0;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 2px solid #ccc;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Alternancia por franja horaria */
+.slot-even td {
+  background: #fafafa;
+}
+
+.slot-odd td {
+  background: #f0f0f0;
+}
+
+/* Columna de la hora */
+.slot {
+  font-weight: bold;
+  color: #000;
+  background: #e8e8e8 !important;
+  border-right: 3px solid #999;
+  text-align: center;
+  min-width: 55px;
+}
+
+/* Grupos más destacados */
+.group {
+  font-weight: 600;
+  color: #000;
+}
+
+.empty-message {
+  text-align: center;
+  margin-top: 2rem;
+  color: #777;
+  font-size: 1.3rem;
+}
+
+/* --- Login --- */
+#login-panel {
+  max-width: 340px;
+  margin: 3rem auto;
+  background: #ffffff;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+}
+
+#login-panel h2 {
+  margin-top: 0;
+  text-align: center;
+  color: #333;
+}
+
+#login-panel label {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+#login-panel input, #login-panel button {
+  width: 100%;
+  padding: 0.45rem;
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+#login-message {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #d00;
+  min-height: 1em;
+}
+
+.hidden { display: none; }
+
+/* Franja actual (sobrescribe el color del bloque) */
+.slot-current td {
+  background: #ffe9b3 !important;  /* amarillo muy suave */
+}
+
+.slot-current .slot {
+  background: #ffd36b !important;
+  border-right-color: #c28b00;
+}

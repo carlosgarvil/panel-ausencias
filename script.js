@@ -1,0 +1,259 @@
+const { createClient } = supabase;
+const SUPABASE_URL = "https://kbluhvorfldptbcnwvvx.supabase.co";   // <-- RELLENA
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtibHVodm9yZmxkcHRiY253dnZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDIxNjIsImV4cCI6MjA3ODYxODE2Mn0.WUeTibJHnmVCsNqcwvzsUdFpsTn8BzjM-W7eZCRaZ7I";          // <-- IGUAL
+
+const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const loginPanel = document.getElementById("login-panel");
+const loginForm = document.getElementById("login-form");
+const loginMessage = document.getElementById("login-message");
+const panelContent = document.getElementById("panel-content");
+const tableBody = document.getElementById("table-body");
+const emptyDiv = document.getElementById("empty");
+const subtitle = document.getElementById("subtitle");
+
+// Mapea tramo (1..14) a hora real.
+// AJUSTA ESTOS VALORES A TU HORARIO REAL:
+const SLOT_TIMES = {
+  1:  { start: "08:15", end: "09:15" },
+  2:  { start: "09:15", end: "10:15" },
+  3:  { start: "10:15", end: "11:00" },
+  4:  { start: "11:15", end: "11:45" }, // Recreo mañana
+  5:  { start: "11:45", end: "12:45" },
+  6:  { start: "12:45", end: "13:45" },
+  7:  { start: "13:45", end: "14:45" },
+  8:  { start: "15:00", end: "16:00" },
+  9:  { start: "16:00", end: "17:00" },
+  10: { start: "17:00", end: "18:00" },
+  11: { start: "18:00", end: "18:15" }, // Recreo tarde
+  12: { start: "18:15", end: "19:15" },
+  13: { start: "19:15", end: "20:15" },
+  14: { start: "20:15", end: "21:15" }
+};
+
+function timeToMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function getCurrentSlot() {
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const [slotStr, range] of Object.entries(SLOT_TIMES)) {
+    const slot = parseInt(slotStr, 10);
+    const startMin = timeToMinutes(range.start);
+    const endMin = timeToMinutes(range.end);
+    if (minutes >= startMin && minutes < endMin) {
+      return slot;
+    }
+  }
+  return null; // fuera del horario
+}
+
+// ===== Login =====
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginMessage.textContent = "";
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    loginMessage.textContent = "Error al iniciar sesión: " + error.message;
+  } else {
+    loginPanel.classList.add("hidden");
+    panelContent.classList.remove("hidden");
+    startPanel();
+  }
+});
+
+// Comprobar si ya hay sesión (por si la TV recuerda la cookie)
+async function checkSession() {
+  const { data } = await client.auth.getSession();
+  if (data.session && data.session.user) {
+    loginPanel.classList.add("hidden");
+    panelContent.classList.remove("hidden");
+    startPanel();
+  }
+}
+
+// ===== Lógica del panel =====
+function formatTodayForSubtitle() {
+  const today = new Date();
+  const opts = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+  subtitle.textContent = today.toLocaleDateString("es-ES", opts);
+}
+
+function getTodayISODate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+async function loadData() {
+  const today = getTodayISODate();
+
+  const { data, error } = await client
+    .from("classes_to_cover")
+    .select("date, weekday_letter, slot, group_name, subject, classroom, teacher_name, display_name")
+    .eq("date", today)
+    .order("slot", { ascending: true })
+    .order("group_name", { ascending: true });
+
+  if (error) {
+    console.error("Error cargando datos panel:", error);
+    return;
+  }
+
+  const merged = mergeByTeacherAndSlot(data || []);
+  renderTable(merged);
+}
+
+function mergeByTeacherAndSlot(rows) {
+  const map = new Map();
+
+  rows.forEach(row => {
+    const visibleName = row.display_name || row.teacher_name;
+    const key = `${row.slot}|${visibleName}|${row.subject}|${row.classroom || ""}`;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        date: row.date,
+        weekday_letter: row.weekday_letter,
+        slot: row.slot,
+        group_name_list: [row.group_name],
+        subject: row.subject,
+        classroom: row.classroom,
+        teacher_name: row.teacher_name,
+        display_name: row.display_name || row.teacher_name
+      });
+    } else {
+      existing.group_name_list.push(row.group_name);
+    }
+  });
+
+  return Array.from(map.values()).map(r => ({
+    date: r.date,
+    weekday_letter: r.weekday_letter,
+    slot: r.slot,
+    group_name: [...new Set(r.group_name_list)].join(" / "),
+    subject: r.subject,
+    classroom: r.classroom,
+    teacher_name: r.teacher_name,
+    display_name: r.display_name
+  }));
+}
+
+function renderTable(rows) {
+  tableBody.innerHTML = "";
+  if (!rows.length) {
+    emptyDiv.classList.remove("hidden");
+    return;
+  }
+  emptyDiv.classList.add("hidden");
+
+  // Agrupar por franja horaria (slot)
+  const groups = new Map();
+  rows.forEach(row => {
+    if (!groups.has(row.slot)) {
+      groups.set(row.slot, []);
+    }
+    groups.get(row.slot).push(row);
+  });
+
+  let sortedSlots = Array.from(groups.keys()).sort((a, b) => a - b);
+
+  // Slot actual según la hora real
+  const currentSlot = getCurrentSlot();
+
+  // Si estamos dentro de horario, ocultar franjas anteriores
+  if (currentSlot !== null) {
+    const futureSlots = sortedSlots.filter(slot => slot >= currentSlot);
+    if (futureSlots.length > 0) {
+      sortedSlots = futureSlots;
+    }
+    // Si por lo que sea no hay futuras (por ejemplo, ya ha pasado todo),
+    // dejamos sortedSlots como estaba para que al menos se vea algo.
+  }
+
+  let groupIndex = 0;
+
+  sortedSlots.forEach(slot => {
+    const groupRows = groups.get(slot);
+
+    // Orden interno por profe (puedes cambiarlo a group_name si te gusta más)
+    groupRows.sort((a, b) => {
+      const nameA = (a.display_name || a.teacher_name) || "";
+      const nameB = (b.display_name || b.teacher_name) || "";
+      return nameA.localeCompare(nameB);
+    });
+    const timeRange = SLOT_TIMES[slot];
+    let slotLabel;
+    if (timeRange) {
+      slotLabel = `${timeRange.start} - ${timeRange.end}`;
+    } else {
+      slotLabel = `T${slot}`;
+    }
+
+    // Alternancia de colores por bloque
+    let blockClass = (groupIndex % 2 === 0) ? "slot-even" : "slot-odd";
+
+    // Si es la franja actual, se marca especial
+    if (currentSlot !== null && slot === currentSlot) {
+      blockClass += " slot-current";
+    }
+
+    groupRows.forEach((row, idx) => {
+      const tr = document.createElement("tr");
+      tr.className = blockClass;
+
+      // Celda de la hora solo en la primera fila del bloque
+      if (idx === 0) {
+        const tdSlot = document.createElement("td");
+        tdSlot.className = "slot";
+        tdSlot.rowSpan = groupRows.length;
+        tdSlot.textContent = slotLabel;
+        tr.appendChild(tdSlot);
+      }
+
+      const tdGroup = document.createElement("td");
+      tdGroup.className = "group";
+      tdGroup.textContent = row.group_name;
+
+      const tdSubject = document.createElement("td");
+      tdSubject.textContent = row.subject;
+
+      const tdClassroom = document.createElement("td");
+      tdClassroom.textContent = row.classroom || "-";
+
+      const tdTeacher = document.createElement("td");
+      tdTeacher.textContent = row.display_name || row.teacher_name;
+
+      tr.appendChild(tdGroup);
+      tr.appendChild(tdSubject);
+      tr.appendChild(tdClassroom);
+      tr.appendChild(tdTeacher);
+
+      tableBody.appendChild(tr);
+    });
+
+    groupIndex++;
+  });
+}
+
+function startPanel() {
+  formatTodayForSubtitle();
+  loadData();
+  // refrescar cada 60 segundos
+  setInterval(loadData, 60000);
+}
+
+checkSession();

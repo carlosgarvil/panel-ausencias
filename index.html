@@ -1,0 +1,55 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Clases a cubrir hoy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="login-panel" class="">
+    <h2>Panel de ausencias</h2>
+    <form id="login-form">
+      <label>
+        Correo
+        <input type="email" id="login-email" required />
+      </label>
+      <label>
+        Contraseña
+        <input type="password" id="login-password" required />
+      </label>
+      <button type="submit">Entrar</button>
+      <div id="login-message"></div>
+    </form>
+  </div>
+
+  <div id="panel-content" class="hidden">
+    <h1>Clases a cubrir hoy</h1>
+    <div id="subtitle"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Grupo</th>
+          <th>Materia</th>
+          <th>Aula</th>
+          <th>Profesor/a ausente</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+
+    <div id="empty" class="empty-message hidden">
+      No hay clases a cubrir por ahora 🎉
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+
+
+
