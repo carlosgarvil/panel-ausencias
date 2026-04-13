@@ -314,6 +314,25 @@ function buildGuardMap(entries, absentTeachers = []) {
 
 async function loadData() {
   const today = getTodayISODate();
+  const activeTeacherNames = new Set();
+
+  const { data: teachersData, error: teachersError } = await client
+    .from("teachers")
+    .select("name, display_name, activo")
+    .eq("activo", true);
+
+  if (teachersError) {
+    console.error("Error cargando profesorado activo:", teachersError);
+    return;
+  }
+
+  (teachersData || []).forEach((teacher) => {
+    const name = String(teacher.name || "").trim();
+    const displayName = String(teacher.display_name || "").trim();
+
+    if (name) activeTeacherNames.add(name);
+    if (displayName) activeTeacherNames.add(displayName);
+  });
 
   const { data, error } = await client
     .from("classes_to_cover")
@@ -326,6 +345,12 @@ async function loadData() {
     console.error("Error cargando datos panel:", error);
     return;
   }
+
+  const visibleRows = (data || []).filter((row) => {
+    const teacherName = String(row.teacher_name || "").trim();
+    const displayName = String(row.display_name || "").trim();
+    return activeTeacherNames.has(teacherName) || activeTeacherNames.has(displayName);
+  });
 
   const weekday = getWeekdayFromISODate(today);
   let guardMap = new Map();
@@ -351,12 +376,19 @@ async function loadData() {
     if (guardError) {
       console.error("Error cargando profesorado de guardia:", guardError);
     } else {
-      const guardEntries = (guardData || []).filter((entry) => normalizeWeekdayValue(entry) === weekday);
+      const guardEntries = (guardData || []).filter((entry) => {
+        if (normalizeWeekdayValue(entry) !== weekday) {
+          return false;
+        }
+
+        const teacherName = String(entry.teacher_name || entry.teacher || "").trim();
+        return activeTeacherNames.has(teacherName);
+      });
       guardMap = buildGuardMap(guardEntries, absentTeachers);
     }
   }
 
-  const merged = mergeByTeacherAndSlot(data || []);
+  const merged = mergeByTeacherAndSlot(visibleRows);
   renderTable(merged, guardMap);
 }
 
