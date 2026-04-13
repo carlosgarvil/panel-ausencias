@@ -150,6 +150,9 @@ td {
 
 .guard-teacher {
   line-height: 1.2;
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .guard-biblioteca {

@@ -292,7 +292,7 @@ function buildGuardMap(entries, absentTeachers = []) {
         });
       }
       guardGroups.get(key).teachers.push(
-        `<div class="guard-teacher${teacher.absentClass}">${teacher.teacherName}</div>`
+        `<div class="guard-teacher ${teacher.guardClass}${teacher.absentClass}">${teacher.teacherName}</div>`
       );
     });
 
