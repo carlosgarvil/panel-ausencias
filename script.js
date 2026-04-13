@@ -468,6 +468,7 @@ function renderTable(rows, guardMap = new Map()) {
         tr.appendChild(tdSlot);
 
         const tdGuard = document.createElement("td");
+        tdGuard.className = "guard-cell";
         const guards = guardMap.get(slot) || "";
         tdGuard.rowSpan = groupRows.length;
         tdGuard.innerHTML = guards || "-";
@@ -475,13 +476,25 @@ function renderTable(rows, guardMap = new Map()) {
       }
 
       const tdGroupSubject = document.createElement("td");
-      tdGroupSubject.className = "group";
-      tdGroupSubject.textContent = `${row.group_name}: ${row.subject}`;
+      tdGroupSubject.className = "group-subject";
+
+      const groupStrong = document.createElement("strong");
+      groupStrong.className = "group";
+      groupStrong.textContent = row.group_name;
+
+      const subjectSpan = document.createElement("span");
+      subjectSpan.className = "subject";
+      subjectSpan.textContent = `: ${row.subject}`;
+
+      tdGroupSubject.appendChild(groupStrong);
+      tdGroupSubject.appendChild(subjectSpan);
 
       const tdClassroom = document.createElement("td");
+      tdClassroom.className = "classroom-cell";
       tdClassroom.textContent = row.classroom || "-";
 
       const tdTeacher = document.createElement("td");
+      tdTeacher.className = "teacher-cell";
       tdTeacher.textContent = row.display_name || row.teacher_name;
 
       tr.appendChild(tdGroupSubject);
