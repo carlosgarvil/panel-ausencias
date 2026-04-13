@@ -122,3 +122,57 @@ td {
   background: #ffd36b !important;
   border-right-color: #c28b00;
 }
+
+.guard-biblioteca,
+.guard-alegria,
+.guard-buleria,
+.guard-default {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  margin: 0.08rem 0;
+}
+
+.guard-group + .guard-group {
+  margin-top: 0.5rem;
+}
+
+.guard-group-title {
+  font-weight: 700;
+  margin-bottom: 0.18rem;
+}
+
+.guard-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+
+.guard-teacher {
+  line-height: 1.2;
+}
+
+.guard-biblioteca {
+  background: #fff3e0;
+  color: #8d5e00;
+}
+
+.guard-alegria {
+  background: #e0f2f1;
+  color: #00695c;
+}
+
+.guard-buleria {
+  background: #ede7f6;
+  color: #4527a0;
+}
+
+.guard-default {
+  background: #f5f5f5;
+  color: #424242;
+}
+
+.guard-absent {
+  text-decoration: line-through;
+  opacity: 0.55;
+}

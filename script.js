@@ -97,6 +97,221 @@ function getTodayISODate() {
   return `${year}-${month}-${day}`;
 }
 
+function getWeekdayFromISODate(dateText) {
+  const [year, month, day] = String(dateText || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function parseWeekday(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value >= 1 && value <= 7) {
+      return value;
+    }
+    if (value >= 0 && value <= 6) {
+      return value + 1;
+    }
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) {
+      return null;
+    }
+
+    const letterMapping = {
+      l: 1,
+      m: 2,
+      x: 3,
+      j: 4,
+      v: 5
+    };
+
+    if (letterMapping[trimmed]) {
+      return letterMapping[trimmed];
+    }
+
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      return parseWeekday(numeric);
+    }
+
+    const mapping = {
+      lunes: 1,
+      monday: 1,
+      martes: 2,
+      tuesday: 2,
+      miercoles: 3,
+      miércoles: 3,
+      wednesday: 3,
+      jueves: 4,
+      thursday: 4,
+      viernes: 5,
+      friday: 5,
+      sabado: 6,
+      sábado: 6,
+      saturday: 6
+    };
+
+    return mapping[trimmed] ?? null;
+  }
+
+  return null;
+}
+
+function normalizeWeekdayValue(entry) {
+  const candidates = [
+    entry.weekday_letter,
+    entry.weekday,
+    entry.week_day,
+    entry.day_of_week,
+    entry.day,
+    entry.weekday_value,
+    entry.weekday_number,
+    entry.weekday_index
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = parseWeekday(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function normalizeSlotValue(entry) {
+  const candidates = [
+    entry.slot,
+    entry.slot_value,
+    entry.slot_number,
+    entry.tramo,
+    entry.hour_slot,
+    entry.start_slot
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    const parsed = Number(candidate);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  return null;
+}
+
+function buildGuardMap(entries, absentTeachers = []) {
+  const guardBySlot = new Map();
+  const getGuardOrder = (subjectText) => {
+    const normalized = (subjectText || "").toLowerCase();
+    if (normalized.includes("alegría") || normalized.includes("alegria")) return 0;
+    if (normalized.includes("bulería") || normalized.includes("buleria")) return 1;
+    if (normalized.includes("biblioteca")) return 2;
+    return 3;
+  };
+  const getGuardLabel = (subjectText) => {
+    const normalized = (subjectText || "").toLowerCase();
+    if (normalized.includes("alegría") || normalized.includes("alegria")) return "Alegría";
+    if (normalized.includes("bulería") || normalized.includes("buleria")) return "Bulería";
+    if (normalized.includes("biblioteca")) return "Biblioteca";
+    return "Guardia";
+  };
+  const getGuardClass = (subjectText) => {
+    const normalized = (subjectText || "").toLowerCase();
+    if (normalized.includes("biblioteca")) return "guard-biblioteca";
+    if (normalized.includes("alegría") || normalized.includes("alegria")) return "guard-alegria";
+    if (normalized.includes("bulería") || normalized.includes("buleria")) return "guard-buleria";
+    return "guard-default";
+  };
+
+  const isTeacherAbsent = (teacherName, slot) => {
+    return absentTeachers.some((abs) => {
+      if (abs.teacher_name !== teacherName) return false;
+      const start = Number(abs.start_slot);
+      const end = Number(abs.end_slot);
+      if (Number.isFinite(start) && Number.isFinite(end)) {
+        return slot >= start && slot <= end;
+      }
+      return true;
+    });
+  };
+
+  entries.forEach((entry) => {
+    const slot = normalizeSlotValue(entry);
+    const teacherName = String(entry.teacher_name || entry.teacher || "").trim();
+    if (!Number.isFinite(slot) || !teacherName) return;
+
+    if (!guardBySlot.has(slot)) {
+      guardBySlot.set(slot, []);
+    }
+
+    const subject = String(entry.subject || entry.subject_name || "").trim();
+    const guardClass = getGuardClass(subject);
+    const absentClass = isTeacherAbsent(teacherName, slot) ? " guard-absent" : "";
+
+    guardBySlot.get(slot).push({
+      teacherName,
+      guardLabel: getGuardLabel(subject),
+      guardClass,
+      guardOrder: getGuardOrder(subject),
+      absentClass
+    });
+  });
+
+  guardBySlot.forEach((teachers, slot) => {
+    const uniqueTeachers = Array.from(
+      new Map(
+        teachers.map((teacher) => [
+          `${teacher.teacherName}|${teacher.guardLabel}|${teacher.guardOrder}|${teacher.absentClass}`,
+          teacher
+        ])
+      ).values()
+    ).sort((a, b) => {
+      if (a.guardOrder !== b.guardOrder) {
+        return a.guardOrder - b.guardOrder;
+      }
+      return a.teacherName.localeCompare(b.teacherName, "es");
+    });
+
+    const guardGroups = new Map();
+    uniqueTeachers.forEach((teacher) => {
+      const key = `${teacher.guardOrder}|${teacher.guardLabel}|${teacher.guardClass}`;
+      if (!guardGroups.has(key)) {
+        guardGroups.set(key, {
+          guardOrder: teacher.guardOrder,
+          guardLabel: teacher.guardLabel,
+          guardClass: teacher.guardClass,
+          teachers: []
+        });
+      }
+      guardGroups.get(key).teachers.push(
+        `<div class="guard-teacher${teacher.absentClass}">${teacher.teacherName}</div>`
+      );
+    });
+
+    const displayHtml = Array.from(guardGroups.values())
+      .sort((a, b) => a.guardOrder - b.guardOrder)
+      .map((group) => (
+        `<div class="guard-group">` +
+        `<div class="guard-group-title ${group.guardClass}">${group.guardLabel}</div>` +
+        `<div class="guard-group-list">${group.teachers.join("")}</div>` +
+        `</div>`
+      ))
+      .join("");
+
+    guardBySlot.set(slot, displayHtml);
+  });
+
+  return guardBySlot;
+}
+
 async function loadData() {
   const today = getTodayISODate();
 
@@ -112,8 +327,37 @@ async function loadData() {
     return;
   }
 
+  const weekday = getWeekdayFromISODate(today);
+  let guardMap = new Map();
+  let absentTeachers = [];
+
+  const { data: absData, error: absError } = await client
+    .from("absences")
+    .select("teacher_name, start_slot, end_slot")
+    .eq("date", today);
+
+  if (absError) {
+    console.error("Error cargando ausencias para guardias:", absError);
+  } else {
+    absentTeachers = absData || [];
+  }
+
+  if (weekday !== null) {
+    const { data: guardData, error: guardError } = await client
+      .from("timetable")
+      .select("*")
+      .ilike("subject", "Guardia%");
+
+    if (guardError) {
+      console.error("Error cargando profesorado de guardia:", guardError);
+    } else {
+      const guardEntries = (guardData || []).filter((entry) => normalizeWeekdayValue(entry) === weekday);
+      guardMap = buildGuardMap(guardEntries, absentTeachers);
+    }
+  }
+
   const merged = mergeByTeacherAndSlot(data || []);
-  renderTable(merged);
+  renderTable(merged, guardMap);
 }
 
 function mergeByTeacherAndSlot(rows) {
@@ -152,7 +396,7 @@ function mergeByTeacherAndSlot(rows) {
   }));
 }
 
-function renderTable(rows) {
+function renderTable(rows, guardMap = new Map()) {
   tableBody.innerHTML = "";
   if (!rows.length) {
     emptyDiv.classList.remove("hidden");
@@ -222,6 +466,12 @@ function renderTable(rows) {
         tdSlot.rowSpan = groupRows.length;
         tdSlot.textContent = slotLabel;
         tr.appendChild(tdSlot);
+
+        const tdGuard = document.createElement("td");
+        const guards = guardMap.get(slot) || "";
+        tdGuard.rowSpan = groupRows.length;
+        tdGuard.innerHTML = guards || "-";
+        tr.appendChild(tdGuard);
       }
 
       const tdGroup = document.createElement("td");
