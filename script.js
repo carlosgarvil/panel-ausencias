@@ -17,7 +17,7 @@ const subtitle = document.getElementById("subtitle");
 const SLOT_TIMES = {
   1:  { start: "08:15", end: "09:15" },
   2:  { start: "09:15", end: "10:15" },
-  3:  { start: "10:15", end: "11:00" },
+  3:  { start: "10:15", end: "11:15" },
   4:  { start: "11:15", end: "11:45" }, // Recreo mañana
   5:  { start: "11:45", end: "12:45" },
   6:  { start: "12:45", end: "13:45" },
